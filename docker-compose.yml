@@ -7,8 +7,8 @@ services:
     container_name: team121-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root  # Mật khẩu root (giống application.properties)
-      MYSQL_DATABASE: TestTinasoft # Tên DB (giống application.properties)
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: TestTinasoft
       MYSQL_PASSWORD: root
     ports:
       - "3306:3306"
@@ -25,41 +25,61 @@ services:
       - "9000:9000" # API Port
       - "9001:9001" # Console Port
     environment:
-      MINIO_ROOT_USER: "admin"        # (giống minio.access-key)
-      MINIO_ROOT_PASSWORD: "02062003" # (giống minio.secret-key)
+      MINIO_ROOT_USER: "admin"        # Đã thêm ngoặc kép
+      MINIO_ROOT_PASSWORD: "02062003" # Đã thêm ngoặc kép để sửa lỗi
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
 
-  # 3. Service Backend (Spring Boot App)
+  # 3. Service EMQX (MQTT Broker) - MỚI THÊM
+  emqx:
+    image: emqx/emqx:5.3.0
+    container_name: team121-emqx
+    restart: always
+    ports:
+      - "1883:1883"   # MQTT TCP Port (Cho thiết bị)
+      - "8083:8083"   # MQTT Websocket (Cho Web/Frontend)
+      - "18083:18083" # Dashboard quản trị
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_log:/opt/emqx/log
+    environment:
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
+
+  # 4. Service Backend (Spring Boot App)
   backend:
-    # Thay yourusername bằng tài khoản docker hub của bạn
     image: ngominhkhoi262003/project-team121:latest
     container_name: team121-backend
     restart: always
     depends_on:
       - mysql-db
       - minio
+      - emqx
     ports:
       - "8080:8080"
     environment:
-      # Cấu hình lại kết nối DB để trỏ vào service 'mysql-db' thay vì localhost
+      # Kết nối Database
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/TestTinasoft?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
 
-      # Cấu hình lại MinIO để trỏ vào service 'minio' thay vì localhost
+      # Kết nối MinIO
       MINIO_URL: http://minio:9000
-      MINIO_ACCESS_KEY: admin
-      MINIO_SECRET_KEY: 02062003
+      MINIO_ACCESS_KEY: "admin"
+      MINIO_SECRET_KEY: "02062003"
       MINIO_BUCKET_NAME: test-bucket
 
-      # Các cấu hình khác giữ nguyên hoặc override nếu cần
+      # Kết nối MQTT (Để Backend giao tiếp với EMQX)
+      MQTT_BROKER_URL: tcp://emqx:1883
+      MQTT_CLIENT_ID: spring-backend-client
+      
       APPLICATION_FRONTEND_URL: http://localhost:3000
     volumes:
-      # Mount thư mục uploads ra ngoài để không mất ảnh khi xóa container
       - ./uploads_data:/app/uploads
 
 volumes:
   mysql_data:
   minio_data:
+  emqx_data:
+  emqx_log:
