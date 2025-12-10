@@ -34,7 +34,7 @@ services:
   # 3. Service Backend (Spring Boot App)
   backend:
     # Thay yourusername bằng tài khoản docker hub của bạn
-    image: yourusername/project-team121:latest
+    image: ngominhkhoi262003/project-team121:latest
     container_name: team121-backend
     restart: always
     depends_on:
